@@ -123,12 +123,11 @@ impl Solver {
             g_xy[group].0 += xy[i].0 / k as f64;
             g_xy[group].1 += xy[i].1 / k as f64;
         }
-        eprintln!("g_v: {:?}", g_v);
 
         let mut ans: Vec<(usize, usize, usize)> = Vec::new();
         let mut cost: f64 = 0.0;
         // グループの重心との最短距離を算出
-        let mut min_diff: Vec<f64> = vec![f64::MAX; n];
+        let mut min_diff: Vec<f64> = vec![l as f64/10.0; n];
         for ti in 0..t {
             for gi in 0..m {
                 let g_xy_ti = self.r#move(g_xy[gi], g_v[gi], ti);
@@ -137,6 +136,7 @@ impl Solver {
                     let xy_ti = self.r#move(xy[i], v[i], ti);
                     let diff = self.diff(g_xy_ti, xy_ti);
                     min_diff[i] = min_diff[i].min(diff);
+                    // min_diff[i] = min_diff[i].max(l as f64/20.0);
                 }
             }
         }
@@ -155,7 +155,6 @@ impl Solver {
                         let diff = self.diff(now_xy[i], now_xy[j]);
                         if min_diff[i] >= diff && min_diff[j] >= diff {
                             // 結合
-                            eprintln!("join: {}-{}", i, j);
                             let (new_leader, new_v) = self.join(i, j, &mut dsu, &now_v);
                             ans.push((ti, i, j));
                             cost += diff;
@@ -173,13 +172,13 @@ impl Solver {
         }
 
         // 結合できてないものは最後に結合
+        eprintln!("not join: {}", n-m-ans.len());
         for gi in 0..m {
             for &i in groups[gi].iter() {
                 if dsu.size(i) == k { continue; }
                 for &j in groups[gi].iter() {
                     if i == j || dsu.same(i, j) { continue; }
                     let diff = self.diff(now_xy[i], now_xy[j]);
-                    eprintln!("join: {}-{}", i, j);
                     let (new_leader, new_v) = self.join(i, j, &mut dsu, &now_v);
                     ans.push((t-1, i, j));
                     cost += diff;
