@@ -95,13 +95,22 @@ impl Solver {
     }
 
     fn solve(&mut self) {
-        let (ans, cost) = self.greedy();
+        let n = self.input.n;
+        let m = self.input.m;
+        let k = self.input.k;
+
+        let mut groups: Vec<Vec<usize>> = vec![Vec::new(); m];
+        for i in 0..n {
+            let group = i / k;
+            groups[group].push(i);
+        }
+        let (ans, cost) = self.greedy(&groups);
 
         self.ans = ans;
         self.cost = cost;
     }
 
-    fn greedy(&self) -> (Vec<(usize, usize, usize)>, f64) {
+    fn greedy(&self, groups: &Vec<Vec<usize>>) -> (Vec<(usize, usize, usize)>, f64) {
         let n = self.input.n;
         let t = self.input.t;
         let m = self.input.m;
@@ -111,23 +120,22 @@ impl Solver {
         let v = self.input.v.clone();
 
         // グループの決定と重心速度の算出
-        let mut groups: Vec<Vec<usize>> = vec![Vec::new(); m];
         let mut g_v: Vec<(f64, f64)> = vec![(0.0, 0.0); m];
         let mut g_m: Vec<usize> = vec![0; m];
         let mut g_xy: Vec<(f64, f64)> = vec![(0.0, 0.0); m];
-        for i in 0..n {
-            let group = i / k;
-            groups[group].push(i);
-            g_v[group] = self.add_v(g_m[group], g_v[group], 1, v[i]);
-            g_m[group] += 1;
-            g_xy[group].0 += xy[i].0 / k as f64;
-            g_xy[group].1 += xy[i].1 / k as f64;
+        for group in 0..m {
+            for &i in groups[group].iter() {
+                g_v[group] = self.add_v(g_m[group], g_v[group], 1, v[i]);
+                g_m[group] += 1;
+                g_xy[group].0 += xy[i].0 / k as f64;
+                g_xy[group].1 += xy[i].1 / k as f64;
+            }
         }
 
         let mut ans: Vec<(usize, usize, usize)> = Vec::new();
         let mut cost: f64 = 0.0;
         // グループの重心との最短距離を算出
-        let mut min_diff: Vec<f64> = vec![l as f64/10.0; n];
+        let mut min_diff: Vec<f64> = vec![l as f64/10.0; n]; // vec![f64::MAX; n];
         for ti in 0..t {
             for gi in 0..m {
                 let g_xy_ti = self.r#move(g_xy[gi], g_v[gi], ti);
@@ -172,7 +180,10 @@ impl Solver {
         }
 
         // 結合できてないものは最後に結合
-        eprintln!("not join: {}", n-m-ans.len());
+        let not_join_cnt = n-m-ans.len();
+        eprintln!("not join: {}", not_join_cnt);
+        let mut not_join_ideal_diff = 0.0;
+        let mut not_join_diff = 0.0;
         for gi in 0..m {
             for &i in groups[gi].iter() {
                 if dsu.size(i) == k { continue; }
@@ -183,11 +194,18 @@ impl Solver {
                     ans.push((t-1, i, j));
                     cost += diff;
                     now_v[new_leader] = new_v;
+                    not_join_ideal_diff = (min_diff[i] + min_diff[j])/2.0;
+                    not_join_diff = diff;
                 }
             }
         }
-
-        eprintln!("ans: {}, n-m: {}", ans.len(), n-m);
+        let mut min_diff_sum = 0.0;
+        for i in 0..n {
+            min_diff_sum += min_diff[i]/2.0;
+        }
+        eprintln!("min_diff: {}, not join diff: {}", min_diff_sum/n as f64, not_join_ideal_diff/not_join_cnt as f64);
+        eprintln!("not join cost: {}, {}", not_join_diff, not_join_diff/not_join_cnt as f64);
+        eprintln!("cost: {}, {}", cost, cost/(n-m) as f64);
 
         (ans, cost)
     }
